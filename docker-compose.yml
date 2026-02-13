@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  qgis-desktop:
+    build:
+      context: ./docker/qgis
+      args:
+        QGIS_VERSION: ${QGIS_VERSION:-ltr}
+    container_name: qgis-desktop
+    hostname: qgis-desktop
+    environment:
+      - DISPLAY=:1
+      - VNC_PASSWORD=${VNC_PASSWORD:-qgis2024}
+      - VNC_RESOLUTION=${VNC_RESOLUTION:-1920x1080}
+      - VNC_COLOR_DEPTH=${VNC_COLOR_DEPTH:-24}
+      - TZ=${TZ:-Europe/Copenhagen}
+    volumes:
+      - ${DATA_DIR:-./data}:/data
+      - ${PROJECTS_DIR:-./qgis-projects}:/root/QGIS/projects
+      - ${PLUGINS_DIR:-./qgis-plugins}:/root/.local/share/QGIS/QGIS3/profiles/default/python/plugins
+      - qgis-config:/root/.local/share/QGIS
+    networks:
+      - qgis-network
+    deploy:
+      resources:
+        limits:
+          cpus: '${CPU_LIMIT:-2}'
+          memory: ${MEMORY_LIMIT:-4G}
+        reservations:
+          cpus: '1'
+          memory: 2G
+    restart: unless-stopped
+    shm_size: '2gb'
+
+  novnc:
+    image: theasp/novnc:latest
+    container_name: qgis-novnc
+    environment:
+      - DISPLAY_WIDTH=${VNC_RESOLUTION:-1920x1080}
+      - DISPLAY_HEIGHT=1080
+      - VNC_PASSWORD=${VNC_PASSWORD:-qgis2024}
+    ports:
+      - "${NOVNC_PORT:-6080}:8080"
+    networks:
+      - qgis-network
+    depends_on:
+      - qgis-desktop
+    environment:
+      - VNC_SERVER=qgis-desktop:5900
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: qgis-nginx
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+      - "${NGINX_SSL_PORT:-8443}:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./dashboard:/usr/share/nginx/html:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    networks:
+      - qgis-network
+    depends_on:
+      - novnc
+      - qgis-desktop
+    restart: unless-stopped
+
+networks:
+  qgis-network:
+    name: ${NETWORK_NAME:-qgis-network}
+    driver: bridge
+
+volumes:
+  qgis-config:

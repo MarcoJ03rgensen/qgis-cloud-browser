@@ -1,0 +1,13 @@
+.env
+data/*
+!data/.gitkeep
+qgis-projects/*
+!qgis-projects/.gitkeep
+qgis-plugins/*
+!qgis-plugins/.gitkeep
+nginx/certs/*.pem
+nginx/certs/*.key
+nginx/certs/*.crt
+*.log
+.DS_Store
+docker-compose.override.yml
